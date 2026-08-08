@@ -1,1 +1,3 @@
 # Chispa
+
+![Chispa](./chispa.png)
