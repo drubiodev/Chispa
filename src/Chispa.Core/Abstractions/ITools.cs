@@ -2,9 +2,9 @@ using System.Text.Json;
 
 namespace Chispa.Core.Abstractions;
 
-public interface ITools
+public interface ITool
 {
     ToolDefinition Definition { get; }
 
-    ValueTask<ToolResult> ExecuteAsync(JsonElement rawInput, CancellationToken cancellationToken);
+    ValueTask<ToolResult> ExecuteAsync(ToolInvocation invocation, CancellationToken cancellationToken = default);
 }

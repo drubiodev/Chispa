@@ -1,11 +1,14 @@
-﻿using Chispa.Core.Abstractions;
+﻿using System.Text.Json;
+using Chispa.Core.Abstractions;
 using Chispa.Core.State;
 using Chispa.Providers;
+using Chispa.Tools.GetTime;
 
-Console.WriteLine("Commands: /history, /exit");
+Console.WriteLine("Commands: /history, /time, /utc, /exit");
 Console.WriteLine("Press Ctrl+C while the model is thinking to cancel.");
 Console.WriteLine();
 
+ITool timeTool = new GetTimeTool();
 var conversation = new Conversation();
 
 using var httpClient = new HttpClient
@@ -45,6 +48,18 @@ while (true)
     if (input.Equals("/history", StringComparison.OrdinalIgnoreCase))
     {
         PrintHistory(conversation);
+        continue;
+    }
+
+    if (input.Equals("/time", StringComparison.OrdinalIgnoreCase))
+    {
+        await RunTimeToolAsync(useUtc: false);
+        continue;
+    }
+
+    if (input.Equals("/utc", StringComparison.OrdinalIgnoreCase))
+    {
+        await RunTimeToolAsync(useUtc: true);
         continue;
     }
 
@@ -145,5 +160,29 @@ static void WriteStatus(string message, ConsoleColor color)
 
     Console.ForegroundColor = color;
     Console.WriteLine($"[{message}]");
+    Console.ForegroundColor = previousColor;
+}
+
+async Task RunTimeToolAsync(bool useUtc)
+{
+    JsonElement arguments = JsonSerializer.SerializeToElement(
+        new { utc = useUtc });
+
+    var invocation = new ToolInvocation(
+        timeTool.Definition.Name,
+        arguments);
+
+    ToolResult result = await timeTool.ExecuteAsync(invocation);
+
+    ConsoleColor color = result.IsSuccess
+        ? ConsoleColor.Green
+        : ConsoleColor.Red;
+
+    ConsoleColor previousColor = Console.ForegroundColor;
+    Console.ForegroundColor = color;
+
+    Console.WriteLine(
+        $"tool[{timeTool.Definition.Name}]> {result.Content}");
+
     Console.ForegroundColor = previousColor;
 }

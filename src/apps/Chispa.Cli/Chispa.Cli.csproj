@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Chispa.Core\Chispa.Core.csproj" />
     <ProjectReference Include="..\..\Chispa.Providers\Chispa.Providers.csproj" />
+    <ProjectReference Include="..\..\Chispa.Tools\Chispa.Tools.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
