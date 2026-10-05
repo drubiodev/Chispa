@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Chispa.Core/Chispa.Core.csproj" />
+    <Project Path="src/Chispa.Providers/Chispa.Providers.csproj" />
+    <Project Path="src/Chispa.Tools/Chispa.Tools.csproj" />
+    <Project Path="src/apps/Chispa.Cli/Chispa.Cli.csproj" />
+  </Folder>
+</Solution>
