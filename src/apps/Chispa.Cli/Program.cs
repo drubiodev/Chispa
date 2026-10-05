@@ -1,14 +1,19 @@
 ﻿using System.Text.Json;
 using Chispa.Core.Abstractions;
+using Chispa.Core.Registry;
 using Chispa.Core.State;
 using Chispa.Providers;
 using Chispa.Tools.GetTime;
 
-Console.WriteLine("Commands: /history, /time, /utc, /exit");
+Console.WriteLine("Commands: /tools, /history, /time, /utc, /exit");
 Console.WriteLine("Press Ctrl+C while the model is thinking to cancel.");
 Console.WriteLine();
 
-ITool timeTool = new GetTimeTool();
+// Register available tools in the tool registry.
+var tools = new ToolRegistry();
+tools.Register(new GetTimeTool());
+
+// Create a new conversation instance.
 var conversation = new Conversation();
 
 using var httpClient = new HttpClient
@@ -60,6 +65,12 @@ while (true)
     if (input.Equals("/utc", StringComparison.OrdinalIgnoreCase))
     {
         await RunTimeToolAsync(useUtc: true);
+        continue;
+    }
+
+    if (input.Equals("/tools", StringComparison.OrdinalIgnoreCase))
+    {
+        PrintTools(tools);
         continue;
     }
 
@@ -165,14 +176,23 @@ static void WriteStatus(string message, ConsoleColor color)
 
 async Task RunTimeToolAsync(bool useUtc)
 {
+    if (!tools.TryGet("get_time", out ITool? tool))
+    {
+        WriteStatus(
+            "tool 'get_time' is not registered",
+            ConsoleColor.Red);
+
+        return;
+    }
+
     JsonElement arguments = JsonSerializer.SerializeToElement(
         new { utc = useUtc });
 
     var invocation = new ToolInvocation(
-        timeTool.Definition.Name,
+        tool.Definition.Name,
         arguments);
 
-    ToolResult result = await timeTool.ExecuteAsync(invocation);
+    ToolResult result = await tool.ExecuteAsync(invocation);
 
     ConsoleColor color = result.IsSuccess
         ? ConsoleColor.Green
@@ -182,7 +202,21 @@ async Task RunTimeToolAsync(bool useUtc)
     Console.ForegroundColor = color;
 
     Console.WriteLine(
-        $"tool[{timeTool.Definition.Name}]> {result.Content}");
+        $"tool[{tool.Definition.Name}]> {result.Content}");
 
     Console.ForegroundColor = previousColor;
+}
+static void PrintTools(ToolRegistry tools)
+{
+    Console.WriteLine();
+    Console.WriteLine($"--- available tools ({tools.Count}) ---");
+
+    foreach (ITool tool in tools.All)
+    {
+        Console.WriteLine(
+            $"{tool.Definition.Name}: {tool.Definition.Description}");
+    }
+
+    Console.WriteLine("---------------------------");
+    Console.WriteLine();
 }
