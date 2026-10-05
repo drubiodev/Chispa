@@ -2,8 +2,8 @@
 using Chispa.Core.State;
 using Chispa.Providers;
 
-Console.WriteLine("Harness conversation demo");
 Console.WriteLine("Commands: /history, /exit");
+Console.WriteLine("Press Ctrl+C while the model is thinking to cancel.");
 Console.WriteLine();
 
 var conversation = new Conversation();
@@ -17,6 +17,19 @@ using var httpClient = new HttpClient
 IModelProvider model = new OllamaModelProvider(
     httpClient,
     "gemma4:latest");
+
+CancellationTokenSource? activeRequest = null;
+
+Console.CancelKeyPress += (_, eventArgs) =>
+{
+    if (activeRequest is null)
+    {
+        return;
+    }
+
+    eventArgs.Cancel = true;
+    activeRequest.Cancel();
+};
 
 while (true)
 {
@@ -42,13 +55,51 @@ while (true)
 
     conversation.Add(ChatMessage.FromUser(input));
 
-    Console.Write("assistant> thinking...");
+    using var requestCancellation = new CancellationTokenSource();
+    activeRequest = requestCancellation;
 
-    ChatMessage response = await model.GenerateAsync(conversation.Messages);
-    conversation.Add(response);
+    try
+    {
+        Console.Write("assistant> thinking...");
 
-    Console.Write("\r");
-    Console.WriteLine($"assistant> {response.Content}");
+        ChatMessage response = await model.GenerateAsync(
+            conversation.Messages,
+            requestCancellation.Token);
+
+        conversation.Add(response);
+
+        ClearCurrentLine();
+        Console.WriteLine($"assistant> {response.Content}");
+    }
+    catch (OperationCanceledException)
+        when (requestCancellation.IsCancellationRequested)
+    {
+        ClearCurrentLine();
+        WriteStatus("request cancelled", ConsoleColor.Yellow);
+    }
+    catch (TaskCanceledException)
+    {
+        ClearCurrentLine();
+        WriteStatus("Ollama request timed out", ConsoleColor.Red);
+    }
+    catch (HttpRequestException exception)
+    {
+        ClearCurrentLine();
+        WriteStatus(
+            $"could not reach Ollama: {exception.Message}",
+            ConsoleColor.Red);
+    }
+    catch (InvalidDataException exception)
+    {
+        ClearCurrentLine();
+        WriteStatus(
+            $"invalid Ollama response: {exception.Message}",
+            ConsoleColor.Red);
+    }
+    finally
+    {
+        activeRequest = null;
+    }
 }
 
 static void PrintHistory(Conversation conversation)
@@ -77,4 +128,22 @@ static void PrintHistory(Conversation conversation)
 
     Console.WriteLine("----------------------------");
     Console.WriteLine();
+}
+
+static void ClearCurrentLine()
+{
+    int width = Math.Max(Console.WindowWidth - 1, 1);
+
+    Console.Write('\r');
+    Console.Write(new string(' ', width));
+    Console.Write('\r');
+}
+
+static void WriteStatus(string message, ConsoleColor color)
+{
+    ConsoleColor previousColor = Console.ForegroundColor;
+
+    Console.ForegroundColor = color;
+    Console.WriteLine($"[{message}]");
+    Console.ForegroundColor = previousColor;
 }
