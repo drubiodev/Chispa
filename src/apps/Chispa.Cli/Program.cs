@@ -1,11 +1,22 @@
 ﻿using Chispa.Core.Abstractions;
 using Chispa.Core.State;
+using Chispa.Providers;
 
 Console.WriteLine("Harness conversation demo");
 Console.WriteLine("Commands: /history, /exit");
 Console.WriteLine();
 
 var conversation = new Conversation();
+
+using var httpClient = new HttpClient
+{
+    BaseAddress = new Uri("http://localhost:11434/"),
+    Timeout = TimeSpan.FromMinutes(5)
+};
+
+IModelProvider model = new OllamaModelProvider(
+    httpClient,
+    "gemma4:latest");
 
 while (true)
 {
@@ -31,10 +42,13 @@ while (true)
 
     conversation.Add(ChatMessage.FromUser(input));
 
-    string reply = $"I received: {input}";
-    conversation.Add(ChatMessage.FromAssistant(reply));
+    Console.Write("assistant> thinking...");
 
-    Console.WriteLine($"assistant> {reply}");
+    ChatMessage response = await model.GenerateAsync(conversation.Messages);
+    conversation.Add(response);
+
+    Console.Write("\r");
+    Console.WriteLine($"assistant> {response.Content}");
 }
 
 static void PrintHistory(Conversation conversation)
